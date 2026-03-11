@@ -36,7 +36,7 @@ CPPFLAGS += -mprocessor=SAMA7D65
 ASFLAGS += -mprocessor=SAMA7D65
 endif
 else
-CPPFLAGS += -mcpu=cortex-a7 -mtune=cortex-a7 -mfpu=vfpv4-d16
-ASFLAGS += -mcpu=cortex-a7 -mtune=cortex-a7 -mfpu=vfpv4-d16
+CPPFLAGS += -mcpu=cortex-a7 -mtune=cortex-a7 -mfpu=vfpv4-d16 -mfloat-abi=soft
+ASFLAGS += -mcpu=cortex-a7 -mtune=cortex-a7 -mfpu=vfpv4-d16 -mfloat-abi=soft
 endif
 endif
