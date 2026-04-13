@@ -24,6 +24,9 @@
 #include "timer.h"
 #include "fdt.h"
 #include "div.h"
+
+static unsigned char nand_boot_flag_value;
+static int nand_boot_flag_valid;
 #ifdef CONFIG_NAND_DMA_SUPPORT
 #include "xdmac.h"
 #endif
@@ -806,6 +809,11 @@ static int nandflash_detect_non_onfi(struct nand_chip *chip)
 
 	chipid = ((unsigned int)manf_id << 8) | dev_id;
 
+	if (chipid == 0) {
+		dbg_info("NAND: No response (ID: 0x0 0x0)\n");
+		return -1;
+	}
+
 	for (i = 0; i < ARRAY_SIZE(nand_ids); i++) {
 		if (chipid == nand_ids[i].chip_id)
 			break;
@@ -881,33 +889,46 @@ static void nandflash_reset(void)
 static int nandflash_get_type(struct nand_info *nand)
 {
 	struct nand_chip *chip = &nand_chip_default;
+	int retry;
+	int detected;
 
-	nandflash_reset();
-
-#ifdef CONFIG_ONFI_DETECT_SUPPORT
-	int ret;
-
-	/* Check if the Nandflash is ONFI compliant */
-	ret = nandflash_detect_onfi(chip);
-	if (ret == -1) {
-		if (nandflash_detect_non_onfi(chip)) {
-			dbg_info("NAND: Not find support device!\n");
-			return -1;
+	for (retry = 0; retry < 3; retry++) {
+		if (retry) {
+			udelay(1000);
+			dbg_info("NAND: Retry detection (%d)\n", retry);
 		}
-	} else {
+
+		nandflash_reset();
+
+		detected = 0;
+#ifdef CONFIG_ONFI_DETECT_SUPPORT
+		int ret;
+
+		ret = nandflash_detect_onfi(chip);
+		if (ret == -1) {
+			if (!nandflash_detect_non_onfi(chip))
+				detected = 1;
+		} else {
+			detected = 1;
 #ifdef CONFIG_NAND_TIMING_MODE
-		ret = nand_switch_timing_mode(chip);
-		if (ret)
-			dbg_info("NAND: Switch to timing mode %d\n", ret);
+			ret = nand_switch_timing_mode(chip);
+			if (ret)
+				dbg_info("NAND: Switch to timing mode %d\n",
+					 ret);
 #endif
+		}
+#else
+		if (!nandflash_detect_non_onfi(chip))
+			detected = 1;
+#endif
+		if (detected)
+			break;
 	}
 
-#else
-	if (nandflash_detect_non_onfi(chip)) {
+	if (!detected) {
 		dbg_info("NAND: Not find support device!\n");
 		return -1;
 	}
-#endif
 
 #ifdef CONFIG_USE_ON_DIE_ECC_SUPPORT
 	if (nand_init_on_die_ecc())
@@ -1487,6 +1508,14 @@ int load_nandflash(struct image_info *image)
 	dbg_info("NAND: Using Software ECC\n");
 #endif
 
+	/* Read A/B boot flag while NAND is properly initialized.
+	 * Use image->dest as scratch since kernel load will overwrite it. */
+	if (nand_loadimage(&nand, 0x140000, nand.pagesize,
+			   (unsigned char *)image->dest) == 0) {
+		nand_boot_flag_value = ((unsigned char *)image->dest)[0];
+		nand_boot_flag_valid = 1;
+	}
+
 #ifdef CONFIG_FAST_BOOT
 	if (nandflash_fast_boot(&nand, image))
 		return 0;
@@ -1532,6 +1561,14 @@ int nand_flash_read(struct nand_info *nand, unsigned int address, unsigned int s
 {
 	return  nand_loadimage(nand, address, size, (unsigned char *) buf);
 
+}
+
+int nand_get_boot_flag(unsigned char *flag)
+{
+	if (!nand_boot_flag_valid)
+		return -1;
+	*flag = nand_boot_flag_value;
+	return 0;
 }
 
 #ifdef CONFIG_FAST_BOOT

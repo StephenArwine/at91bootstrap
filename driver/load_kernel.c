@@ -417,6 +417,27 @@ int load_kernel(struct image_info *image)
 	if (ret)
 		return ret;
 
+#ifdef CONFIG_NANDFLASH
+	{
+		unsigned char boot_flag = 0;
+		if (nand_get_boot_flag(&boot_flag) == 0
+		    && boot_flag == 0x01) {
+			char *p;
+			p = strstr(bootargs, "rootfs_a");
+			if (p)
+				p[7] = 'b';
+			p = strstr(bootargs, "ubiblock0_0");
+			if (p)
+				p[10] = '1';
+			dbg_info("BOOT: Slot B selected (flag=0x%x)\n",
+				 boot_flag);
+		} else {
+			dbg_info("BOOT: Slot A selected (flag=0x%x)\n",
+				 boot_flag);
+		}
+	}
+#endif
+
 #ifdef CONFIG_OVERRIDE_CMDLINE_FROM_EXT_FILE
 	bootargs = board_override_cmd_line_ext(image->cmdline_args);
 #endif
