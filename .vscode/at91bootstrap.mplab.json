@@ -1,0 +1,90 @@
+{
+  "version": "1.9",
+  "importedFrom": "./",
+  "configurations": [
+    {
+      "name": "default",
+      "id": "conf1",
+      "device": "SAM9X60",
+      "imageType": "application",
+      "toolProperties": "default-tool",
+      "packs": [
+        {
+          "name": "SAM9X6_DFP",
+          "vendor": "Microchip",
+          "version": "1.5.50"
+        }
+      ],
+      "fileSet": "Project files",
+      "userVariables": "default-uservariables",
+      "microchip.*:makefiletype": "default-makefiletype",
+      "includeLegacyMacros": true
+    }
+  ],
+  "propertyGroups": [
+    {
+      "name": "default-uservariables",
+      "type": "uservariables",
+      "properties": {
+        "boot.use": "false",
+        "x.bootstrap.use": "None"
+      }
+    },
+    {
+      "name": "default-tool",
+      "type": "tool",
+      "properties": {
+        "AutoSelectMemRanges": "auto",
+        "boot.use": false,
+        "communication.autoselectspeed": true,
+        "communication.interface": "4wire",
+        "communication.speed": "4",
+        "debugoptions.debug-startup": "Use system settings",
+        "debugoptions.reset-behaviour": "Use system settings",
+        "memories.bootflash": true,
+        "memories.configurationmemory": true,
+        "memories.eeprom": true,
+        "memories.id": true,
+        "memories.instruction.ram": true,
+        "memories.instruction.ram.end": "${memories.instruction.ram.end.value}",
+        "memories.instruction.ram.start": "${memories.instruction.ram.start.value}",
+        "memories.programmemory": true,
+        "memories.programmemory.end": "0x4fffff",
+        "memories.programmemory.start": "0x300000",
+        "programoptions.eraseb4program": false,
+        "programoptions.preservebootflash": false,
+        "programoptions.preserveprogramrange": false,
+        "programoptions.preserveprogramrange.end": "0x4fffff",
+        "programoptions.preserveprogramrange.start": "0x300000",
+        "programoptions.resetafterprogram": true,
+        "script.has_reset": true,
+        "script.log_level": "1",
+        "script.reset_delay": "0",
+        "script.show_output": false,
+        "x.bootstrap.use": "None"
+      }
+    },
+    {
+      "name": "default-makefiletype",
+      "type": "makefiletype",
+      "provider": "microchip.*:makefiletype",
+      "properties": {
+        "workingDirectory": ".",
+        "buildCommand": "make CROSS_COMPILE=arm-none-eabi-",
+        "cleanCommand": "make mplabclean CROSS_COMPILE=arm-none-eabi-",
+        "debugBuildCommand": "make CROSS_COMPILE=arm-none-eabi-",
+        "imageName": "build/binaries/at91bootstrap-stripped.elf",
+        "debugImageName": "build/binaries/at91bootstrap.elf"
+      }
+    }
+  ],
+  "fileSets": [
+    {
+      "name": "Project files",
+      "files": [
+        "autoload.py"
+      ],
+      "encoding": "ISO-8859-1"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build - at91bootstrap (default)",
+      "type": "shell",
+      "command": "make CROSS_COMPILE=arm-none-eabi-",
+      "windows": {
+        "command": "make CROSS_COMPILE=arm-none-eabi-"
+      }
+    },
+    {
+      "label": "clean - at91bootstrap (default)",
+      "type": "shell",
+      "command": "make mplabclean CROSS_COMPILE=arm-none-eabi-",
+      "windows": {
+        "command": "make mplabclean CROSS_COMPILE=arm-none-eabi-"
+      }
+    },
+    {
+      "label": "debug build - at91bootstrap (default)",
+      "type": "shell",
+      "command": "make CROSS_COMPILE=arm-none-eabi-",
+      "windows": {
+        "command": "make CROSS_COMPILE=arm-none-eabi-"
+      }
+    }
+  ]
+}
