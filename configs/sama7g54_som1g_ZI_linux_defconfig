@@ -1,0 +1,33 @@
+# Copyright (C) 2025 Microchip Technology Inc. and its subsidiaries
+#
+# SPDX-License-Identifier: MIT
+#
+# SAMA7G54D1GT-I/4UB SiP variant: 1 Gbit (128 MiB) integrated DDR3L
+# (W631GU6NB die). Identical to sama7g54_som2g_ZI_linux otherwise,
+# except the at91bootstrap MCP16502 voltage-select is dropped because
+# the board now carries an MCP16501 PMIC; rely on its OTP defaults.
+
+CONFIG_SAMA7G5=y
+CONFIG_CPU_CLK_1000MHZ=y
+CONFIG_DDR_SET_BY_DEVICE=y
+CONFIG_DDR_W631GU6NB12I=y
+CONFIG_MEM_CLOCK_533=y
+CONFIG_DEBUG=y
+CONFIG_NANDFLASH=y
+# CONFIG_NAND_TIMING_MODE is not set
+# CONFIG_NAND_DMA_SUPPORT is not set
+CONFIG_LOAD_LINUX=y
+CONFIG_OVERRIDE_CMDLINE=y
+CONFIG_LINUX_KERNEL_ARG_STRING="CONFIG_ARG_CONSOLE CONFIG_ARG_MTD CONFIG_ARG_ROOT CONFIG_ARG_ROOTFSTYPE CONFIG_ARG_RW CONFIG_ARG_ROOTWAIT"
+CONFIG_ARG_CONSOLE="console=ttyS0,115200"
+CONFIG_ARG_MTD=" mtdparts=atmel_nand:256k(reserved0),1M(uboot),256k(reserved1),512k(dtb),6M(kernel),-(rootfs)"
+CONFIG_ARG_ROOT=" ubi.block=0,rootfs_a root=/dev/ubiblock0_0"
+CONFIG_ARG_ROOTFSTYPE=" rootfstype=squashfs ubi.mtd=rootfs"
+CONFIG_ARG_RW=" ro"
+CONFIG_ARG_ROOTWAIT=" rootwait"
+CONFIG_IMAGE_NAME="zImage"
+# CONFIG_REDIRECT_ALL_INTS_AIC is not set
+CONFIG_TZC400=y
+CONFIG_FLEXCOM10=y
+CONFIG_FLEXCOM10_IOSET=2
+CONFIG_WDTS=y
