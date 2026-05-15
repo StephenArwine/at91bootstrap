@@ -420,8 +420,12 @@ int load_kernel(struct image_info *image)
 #ifdef CONFIG_NANDFLASH
 	{
 		unsigned char boot_flag = 0;
-		if (nand_get_boot_flag(&boot_flag) == 0
-		    && boot_flag == 0x01) {
+		unsigned char b_marker  = 0;
+		int have_flag   = (nand_get_boot_flag(&boot_flag) == 0);
+		int have_marker = (nand_get_boot_b_marker(&b_marker) == 0);
+
+		if (have_flag && boot_flag == 0x01
+		    && have_marker && b_marker == 0xA5) {
 			char *p;
 			p = strstr(bootargs, "rootfs_a");
 			if (p)
@@ -429,8 +433,11 @@ int load_kernel(struct image_info *image)
 			p = strstr(bootargs, "ubiblock0_0");
 			if (p)
 				p[10] = '1';
-			dbg_info("BOOT: Slot B selected (flag=0x%x)\n",
-				 boot_flag);
+			dbg_info("BOOT: Slot B selected (flag=0x%x marker=0x%x)\n",
+				 boot_flag, b_marker);
+		} else if (have_flag && boot_flag == 0x01) {
+			dbg_info("BOOT: Slot B requested but marker=0x%x (need 0xA5) -- falling back to A\n",
+				 b_marker);
 		} else {
 			dbg_info("BOOT: Slot A selected (flag=0x%x)\n",
 				 boot_flag);

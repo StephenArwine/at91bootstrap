@@ -26,6 +26,7 @@
 #include "div.h"
 
 static unsigned char nand_boot_flag_value;
+static unsigned char nand_boot_b_marker;
 static int nand_boot_flag_valid;
 #ifdef CONFIG_NAND_DMA_SUPPORT
 #include "xdmac.h"
@@ -1509,10 +1510,13 @@ int load_nandflash(struct image_info *image)
 #endif
 
 	/* Read A/B boot flag while NAND is properly initialized.
+	 * Byte 0: active slot (0x01 = B, else A).
+	 * Byte 1: B-valid marker (0xA5 = B rootfs is known good).
 	 * Use image->dest as scratch since kernel load will overwrite it. */
 	if (nand_loadimage(&nand, 0x140000, nand.pagesize,
 			   (unsigned char *)image->dest) == 0) {
 		nand_boot_flag_value = ((unsigned char *)image->dest)[0];
+		nand_boot_b_marker  = ((unsigned char *)image->dest)[1];
 		nand_boot_flag_valid = 1;
 	}
 
@@ -1568,6 +1572,14 @@ int nand_get_boot_flag(unsigned char *flag)
 	if (!nand_boot_flag_valid)
 		return -1;
 	*flag = nand_boot_flag_value;
+	return 0;
+}
+
+int nand_get_boot_b_marker(unsigned char *marker)
+{
+	if (!nand_boot_flag_valid)
+		return -1;
+	*marker = nand_boot_b_marker;
 	return 0;
 }
 
