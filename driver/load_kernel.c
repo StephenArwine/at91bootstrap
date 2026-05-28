@@ -419,13 +419,63 @@ int load_kernel(struct image_info *image)
 
 #ifdef CONFIG_NANDFLASH
 	{
+		/*
+		 * A/B slot selection.
+		 *
+		 * Boot-control page (mtd2 page 0) layout:
+		 *   byte 0 (flag):   0x00 -> slot A, 0x01 -> slot B
+		 *   byte 1 (marker): 0xA5 -> confirmed healthy, else tentative
+		 *   byte 2 (tries):  remaining tentative attempts for slot B
+		 *
+		 * Decision tree (matches the contract zonedin-update and
+		 * zonedin-boot-health write):
+		 *   - flag != B                            -> boot A (no change)
+		 *   - flag == B, marker == 0xA5            -> boot B
+		 *   - flag == B, marker != 0xA5, tries > 0 -> decrement tries,
+		 *                                              attempt B
+		 *   - flag == B, marker != 0xA5, tries==0  -> rollback to A
+		 *                                              (write {0,0,0})
+		 *
+		 * The decrement / rollback writes happen here, before the
+		 * cmdline is patched, so a write failure can fall back safely.
+		 */
 		unsigned char boot_flag = 0;
 		unsigned char b_marker  = 0;
+		unsigned char b_tries   = 0;
 		int have_flag   = (nand_get_boot_flag(&boot_flag) == 0);
 		int have_marker = (nand_get_boot_b_marker(&b_marker) == 0);
+		int have_tries  = (nand_get_boot_b_tries(&b_tries) == 0);
+		int select_b = 0;
 
-		if (have_flag && boot_flag == 0x01
-		    && have_marker && b_marker == 0xA5) {
+		if (have_flag && boot_flag == 0x01) {
+			if (have_marker && b_marker == 0xA5) {
+				dbg_info("BOOT: Slot B confirmed (marker=0xA5)\n");
+				select_b = 1;
+			} else if (have_tries && b_tries > 0) {
+				unsigned char new_tries = b_tries - 1;
+				dbg_info("BOOT: Slot B tentative (marker=0x%x), tries %d -> %d\n",
+					 b_marker, b_tries, new_tries);
+				if (nand_write_boot_control(0x01,
+							    b_marker,
+							    new_tries) != 0) {
+					dbg_info("BOOT: tries decrement failed -- falling back to A\n");
+					select_b = 0;
+				} else {
+					select_b = 1;
+				}
+			} else {
+				dbg_info("BOOT: Slot B tries exhausted (marker=0x%x tries=%d) -- rolling back to A\n",
+					 b_marker, b_tries);
+				if (nand_write_boot_control(0x00, 0x00, 0x00) != 0)
+					dbg_info("BOOT: rollback write failed; booting A anyway\n");
+				select_b = 0;
+			}
+		} else {
+			dbg_info("BOOT: Slot A selected (flag=0x%x)\n",
+				 boot_flag);
+		}
+
+		if (select_b) {
 			char *p;
 			p = strstr(bootargs, "rootfs_a");
 			if (p)
@@ -433,14 +483,6 @@ int load_kernel(struct image_info *image)
 			p = strstr(bootargs, "ubiblock0_0");
 			if (p)
 				p[10] = '1';
-			dbg_info("BOOT: Slot B selected (flag=0x%x marker=0x%x)\n",
-				 boot_flag, b_marker);
-		} else if (have_flag && boot_flag == 0x01) {
-			dbg_info("BOOT: Slot B requested but marker=0x%x (need 0xA5) -- falling back to A\n",
-				 b_marker);
-		} else {
-			dbg_info("BOOT: Slot A selected (flag=0x%x)\n",
-				 boot_flag);
 		}
 	}
 #endif

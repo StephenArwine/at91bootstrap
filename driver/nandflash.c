@@ -25,9 +25,22 @@
 #include "fdt.h"
 #include "div.h"
 
+/*
+ * Boot-control page cache (mtd2 / reserved1, byte offset 0x140000).
+ * Byte 0: active slot      (0x00 = A, 0x01 = B)
+ * Byte 1: B-valid marker   (0xA5 = confirmed healthy; else tentative)
+ * Byte 2: B-tries          (decremented on each tentative attempt; 0 -> rollback)
+ *
+ * Populated during load_nandflash() so the cached struct nand_info is
+ * available for later write-back by nand_write_boot_control() without
+ * re-probing the chip.
+ */
 static unsigned char nand_boot_flag_value;
 static unsigned char nand_boot_b_marker;
+static unsigned char nand_boot_b_tries;
 static int nand_boot_flag_valid;
+static struct nand_info nand_boot_info;
+static int nand_boot_info_valid;
 #ifdef CONFIG_NAND_DMA_SUPPORT
 #include "xdmac.h"
 #endif
@@ -1509,15 +1522,21 @@ int load_nandflash(struct image_info *image)
 	dbg_info("NAND: Using Software ECC\n");
 #endif
 
-	/* Read A/B boot flag while NAND is properly initialized.
-	 * Byte 0: active slot (0x01 = B, else A).
-	 * Byte 1: B-valid marker (0xA5 = B rootfs is known good).
-	 * Use image->dest as scratch since kernel load will overwrite it. */
+	/* Read A/B boot-control page while NAND is properly initialized.
+	 * Byte 0: active slot     (0x01 = B, else A).
+	 * Byte 1: B-valid marker  (0xA5 = B rootfs confirmed healthy).
+	 * Byte 2: B-tries         (bootloader decrements per tentative attempt).
+	 * Use image->dest as scratch since kernel load will overwrite it.
+	 * Also stash the probed nand_info so nand_write_boot_control() can
+	 * write back to this same page from load_kernel() without re-probing. */
 	if (nand_loadimage(&nand, 0x140000, nand.pagesize,
 			   (unsigned char *)image->dest) == 0) {
 		nand_boot_flag_value = ((unsigned char *)image->dest)[0];
 		nand_boot_b_marker  = ((unsigned char *)image->dest)[1];
+		nand_boot_b_tries   = ((unsigned char *)image->dest)[2];
 		nand_boot_flag_valid = 1;
+		nand_boot_info = nand;
+		nand_boot_info_valid = 1;
 	}
 
 #ifdef CONFIG_FAST_BOOT
@@ -1580,6 +1599,197 @@ int nand_get_boot_b_marker(unsigned char *marker)
 	if (!nand_boot_flag_valid)
 		return -1;
 	*marker = nand_boot_b_marker;
+	return 0;
+}
+
+int nand_get_boot_b_tries(unsigned char *tries)
+{
+	if (!nand_boot_flag_valid)
+		return -1;
+	*tries = nand_boot_b_tries;
+	return 0;
+}
+
+/*
+ * Write-side helpers for the boot-control page.
+ *
+ * The boot-control page lives at byte offset 0x140000 (the start of mtd2 /
+ * reserved1). Userspace (zonedin-update / zonedin-boot-health /
+ * zonedin-rollback) writes it via flash_erase + nandwrite, which apply
+ * PMECC through the kernel MTD layer. We mirror that here: erase the
+ * containing block, program one page with PMECC, then verify by reading
+ * back through the same path the bootloader uses at boot.
+ *
+ * Self-contained helpers (rather than reusing nand_write_sector(), which
+ * lives under CONFIG_FAST_BOOT) so this change cannot perturb the load
+ * path that every device depends on at boot.
+ */
+static int bootctl_erase_block(struct nand_info *nand, unsigned int block)
+{
+	unsigned int row_address = block * nand->pages_block;
+	unsigned int timeout = 10000;
+	unsigned int status = 0;
+
+	nand_cs_enable();
+
+	nand_command(CMD_ERASE_1);
+	write_row_address(nand, row_address);
+	nand_command(CMD_ERASE_2);
+
+	udelay(2000);
+
+	nand_command(CMD_STATUS);
+	read_byte(); /* dummy read for tWHR */
+	while ((!((status = read_byte()) & STATUS_READY)) && --timeout)
+		;
+
+	nand_cs_disable();
+
+	if (timeout == 0)
+		return -2;
+	if (status & STATUS_ERROR)
+		return -1;
+	return 0;
+}
+
+static int bootctl_write_page(struct nand_info *nand,
+			      unsigned int row_address,
+			      const unsigned char *buffer)
+{
+	unsigned int i, j;
+	unsigned char ecctab[PMECC_MAX_PMECCSIZE];
+	unsigned char *ecc;
+	unsigned char *pmecc;
+	unsigned int nb_sectors_per_page;
+	unsigned int ecc_bytes_per_sector;
+	unsigned char status = 0;
+
+	nand_cs_enable();
+	nand->command(CMD_WRITE_1);
+	write_column_address(nand, 0);
+	write_row_address(nand, row_address);
+
+	pmecc_enable(1);
+
+	/* SOM NAND is 8-bit (see nand_ids[]); write byte-by-byte. */
+	for (i = 0; i < nand->pagesize; i++)
+		write_byte(buffer[i]);
+
+	/* Re-position into the OOB at the first ECC byte. */
+	nand->command(CMD_READ_R);
+	write_column_address(nand,
+			     nand->pagesize + nand->ecclayout->eccpos[0]);
+
+	pmecc_wait_ready();
+	ecc = ecctab;
+	nb_sectors_per_page = pmecc_get_sectors_per_page();
+	ecc_bytes_per_sector = get_pmecc_bytes(nand->ecc_sector_size,
+					       nand->ecc_err_bits);
+	for (i = 0; i < nb_sectors_per_page; i++) {
+		pmecc = (unsigned char *)PMECC_SECTOR_ECC(i);
+		for (j = 0; j < ecc_bytes_per_sector; j++)
+			*ecc++ = *pmecc++;
+	}
+
+	ecc = ecctab;
+	for (i = 0; i < nand->ecclayout->eccbytes; i++)
+		write_byte(*ecc++);
+
+	nand->command(CMD_WRITE_2);
+	nand_wait_ready();
+
+	nand_command(CMD_STATUS);
+	read_byte(); /* dummy read for tWHR */
+	status = read_byte();
+
+	nand_cs_disable();
+
+	if (status & STATUS_ERROR)
+		return -1;
+	return 0;
+}
+
+int nand_write_boot_control(unsigned char flag,
+			    unsigned char marker,
+			    unsigned char tries)
+{
+	struct nand_info *nand = &nand_boot_info;
+	static unsigned char bootctl_buf[NAND_MAX_PAGE_DATA_SIZE];
+	unsigned char scratch_oob[NAND_MAX_PAGE_SPARE_SIZE];
+	unsigned int offset = 0x140000;
+	unsigned int block, page_in_block;
+	unsigned int row_address;
+	unsigned int i;
+	int ret;
+
+	if (!nand_boot_info_valid) {
+		dbg_info("BOOTCTL: NAND not initialised, cannot write\n");
+		return -1;
+	}
+	if (nand->pagesize > sizeof(bootctl_buf)) {
+		dbg_info("BOOTCTL: pagesize %d exceeds scratch %d\n",
+			 nand->pagesize, (int)sizeof(bootctl_buf));
+		return -1;
+	}
+
+	division(offset, nand->blocksize, &block, &page_in_block);
+	page_in_block = div(page_in_block, nand->pagesize);
+
+	/* Skip bad blocks the same way nand_loadimage() does so the page
+	 * lives in the physical block the bootloader will read at boot. */
+	while (nand_check_badblock(nand, block, scratch_oob) != 0) {
+		dbg_info("BOOTCTL: skipping bad block #%x\n", block);
+		block++;
+		if (block >= nand->numblocks) {
+			dbg_info("BOOTCTL: no good block found\n");
+			return -1;
+		}
+	}
+
+	row_address = block * nand->pages_block + page_in_block;
+
+	for (i = 0; i < nand->pagesize; i++)
+		bootctl_buf[i] = 0;
+	bootctl_buf[0] = flag;
+	bootctl_buf[1] = marker;
+	bootctl_buf[2] = tries;
+
+	ret = bootctl_erase_block(nand, block);
+	if (ret) {
+		dbg_info("BOOTCTL: erase block %d failed (%d)\n", block, ret);
+		return -1;
+	}
+
+	ret = bootctl_write_page(nand, row_address, bootctl_buf);
+	if (ret) {
+		dbg_info("BOOTCTL: write page (row %x) failed (%d)\n",
+			 row_address, ret);
+		return -1;
+	}
+
+	/* Verify via the same read path used at boot. */
+	for (i = 0; i < 3; i++)
+		bootctl_buf[i] = 0xff;
+	ret = nand_read_sector(nand, row_address, bootctl_buf, ZONE_DATA);
+	if (ret) {
+		dbg_info("BOOTCTL: verify read failed (%d)\n", ret);
+		return -1;
+	}
+	if (bootctl_buf[0] != flag
+	    || bootctl_buf[1] != marker
+	    || bootctl_buf[2] != tries) {
+		dbg_info("BOOTCTL: verify mismatch read=%x,%x,%x want=%x,%x,%x\n",
+			 bootctl_buf[0], bootctl_buf[1], bootctl_buf[2],
+			 flag, marker, tries);
+		return -1;
+	}
+
+	/* Keep the cache in lockstep with what's on flash so any further
+	 * getter calls in this boot see the new values. */
+	nand_boot_flag_value = flag;
+	nand_boot_b_marker = marker;
+	nand_boot_b_tries = tries;
+
 	return 0;
 }
 
