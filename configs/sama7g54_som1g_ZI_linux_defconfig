@@ -19,7 +19,7 @@ CONFIG_NAND_DMA_SUPPORT=y
 CONFIG_LOAD_LINUX=y
 CONFIG_OVERRIDE_CMDLINE=y
 CONFIG_LINUX_KERNEL_ARG_STRING="CONFIG_ARG_CONSOLE CONFIG_ARG_MTD CONFIG_ARG_ROOT CONFIG_ARG_ROOTFSTYPE CONFIG_ARG_RW CONFIG_ARG_ROOTWAIT CONFIG_ARG_CMA"
-CONFIG_ARG_CONSOLE="console=ttyS0,115200 loglevel=4 initcall_debug"
+CONFIG_ARG_CONSOLE="console=ttyS0,115200 loglevel=4"
 CONFIG_ARG_MTD=" mtdparts=atmel_nand:256k(reserved0),1M(uboot),256k(reserved1),512k(dtb),6M(kernel),-(rootfs)"
 CONFIG_ARG_ROOT=" ubi.block=0,rootfs_a root=/dev/ubiblock0_0"
 CONFIG_ARG_ROOTFSTYPE=" rootfstype=squashfs ubi.mtd=rootfs"
