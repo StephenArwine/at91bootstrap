@@ -1,0 +1,42 @@
+# Copyright (C) 2025 Microchip Technology Inc. and its subsidiaries
+#
+# SPDX-License-Identifier: MIT
+#
+# ZI AIO board: SAMA7G54D1GT-I/4UB soldered directly to the board (no SoM),
+# with the STM32 removed. The SAMA7 drives the HUB75 panel (SPWM) and
+# captures the radar itself.
+#
+# Starts as a copy of sama7g54_som1g_ZI_linux (the STM32 boards, which stay
+# on the ZI-2025.10 branch). The boot-logo option and clk_ignore_unused
+# are added here once the logo code lands on this branch.
+#
+# SAMA7G54D1GT-I/4UB SiP variant: 1 Gbit (128 MiB) integrated DDR3L
+# (W631GU6NB die). The MCP16501 PMIC runs on its OTP defaults (no
+# at91bootstrap voltage select).
+CONFIG_SAMA7G5=y
+CONFIG_CPU_CLK_1000MHZ=y
+CONFIG_DDR_SET_BY_DEVICE=y
+CONFIG_DDR_W631GU6NB12I=y
+CONFIG_MEM_CLOCK_533=y
+CONFIG_DEBUG=y
+CONFIG_NANDFLASH=y
+CONFIG_NAND_TIMING_MODE=y
+CONFIG_NAND_DMA_SUPPORT=y
+CONFIG_LOAD_LINUX=y
+CONFIG_OVERRIDE_CMDLINE=y
+CONFIG_LINUX_KERNEL_ARG_STRING="CONFIG_ARG_CONSOLE CONFIG_ARG_MTD CONFIG_ARG_ROOT CONFIG_ARG_ROOTFSTYPE CONFIG_ARG_RW CONFIG_ARG_ROOTWAIT CONFIG_ARG_CMA"
+CONFIG_ARG_CONSOLE="console=ttyS0,115200 loglevel=4"
+CONFIG_ARG_MTD=" mtdparts=atmel_nand:256k(reserved0),1M(uboot),256k(reserved1),512k(dtb),6M(kernel),-(rootfs)"
+CONFIG_ARG_ROOT=" ubi.block=0,rootfs_a root=/dev/ubiblock0_0"
+CONFIG_ARG_ROOTFSTYPE=" rootfstype=squashfs ubi.mtd=rootfs"
+CONFIG_ARG_RW=" ro"
+CONFIG_ARG_ROOTWAIT=" rootwait"
+# Pin CMA explicitly: V4L2/ISC buffers fit in <4 MB; default was reserving
+# 64 MB (50% of the D1GT's 128 MB DDR), starving userspace + page cache.
+CONFIG_ARG_CMA=" cma=8M"
+CONFIG_IMAGE_NAME="zImage"
+# CONFIG_REDIRECT_ALL_INTS_AIC is not set
+CONFIG_TZC400=y
+CONFIG_FLEXCOM10=y
+CONFIG_FLEXCOM10_IOSET=2
+CONFIG_WDTS=y
