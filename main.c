@@ -16,6 +16,9 @@
 #include "autoconf.h"
 #include "optee.h"
 #include "sfr_aicredir.h"
+#ifdef CONFIG_SPWM_LOGO
+#include "spwm_logo.h"
+#endif
 #ifdef CONFIG_FAST_BOOT
 #include "fast_boot.h"
 #endif
@@ -102,6 +105,11 @@ int main(void)
 
 #if defined(CONFIG_SAMA7G5) || defined(CONFIG_SAMA7D65)
 	hw_postinit();
+#endif
+
+#ifdef CONFIG_SPWM_LOGO
+	/* Logo on the panel as early as possible; the scan runs with no CPU. */
+	spwm_logo_show();
 #endif
 
 #ifdef CONFIG_FAST_BOOT

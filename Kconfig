@@ -461,6 +461,27 @@ config BOARD_QUIRK_SAM9X75_CURIOSITY
 
 endchoice
 
+config SPWM_LOGO
+	bool "Show a logo on the SM16169 HUB75 panel while booting"
+	depends on SAMA7G5 && PIT64B
+	default n
+	help
+	  Load the ZonedIn logo into the SM16169S panel right after the clocks
+	  and DRAM are up, and leave a CPU-less scan engine running (PWM ch0-3
+	  fed by XDMAC1 ch31 from internal SRAM) so the logo stays lit through
+	  the Linux boot. The kernel needs the at_xdmac reserved-channels patch
+	  and an enabled &pwm node. Pins: driver/spwm_logo.c.
+
+config SPWM_LOGO_DCLK_SLOWDOWN
+	int "Extra repeats of each DCLK / data write"
+	depends on SPWM_LOGO
+	default 2
+	range 0 64
+	help
+	  Stretches the bit-banged DCLK edges while the logo is shifted into
+	  the SM16169 (libspwm's dclk_slowdown). Raise it if the logo shows
+	  random wrong pixels.
+
 config LED_ON_BOARD
 	bool "There are LEDs on the board"
 	default n
