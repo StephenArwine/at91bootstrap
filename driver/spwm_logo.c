@@ -51,10 +51,10 @@ static const struct pin pins[NSIG] = {
 #define SCREEN_ON_BANK  (-1)                 /* the EK panel has its own supply */
 #else
 /*
- * ZI AIO. OE/A/B/C are the proven PWM pins (hardware/ZI_SAMA7_AIO/README.md
- * section 2a). CLK, LAT, the colour lines and SCREEN_ON are PROVISIONAL:
- * bank C as the README recommends, to be replaced by the pins recorded in
- * README section 2b once the schematic is final.
+ * ZI AIO. OE/A/B/C are the proven PWM pins (hardware/ZI_SAMA7_AIO/
+ * ZI_SAMA7_AIO_Rework.html, section 2a). CLK, LAT, the colour lines and
+ * SCREEN_ON are PROVISIONAL: bank C as that page recommends, to be replaced
+ * by the pins recorded in its section 2b table once the schematic is final.
  */
 static const struct pin pins[NSIG] = {
 	[R1]  = { 2,  6, 0 }, [G1] = { 2,  7, 0 }, [B1] = { 2,  8, 0 },
