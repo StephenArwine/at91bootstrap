@@ -51,21 +51,21 @@ static const struct pin pins[NSIG] = {
 #define SCREEN_ON_BANK  (-1)                 /* the EK panel has its own supply */
 #else
 /*
- * ZI AIO. OE/A/B/C are the proven PWM pins (hardware/ZI_SAMA7_AIO/
- * ZI_SAMA7_AIO_Rework.html, section 2a). CLK, LAT, the colour lines and
- * SCREEN_ON are PROVISIONAL: bank C as that page recommends, to be replaced
- * by the pins recorded in its section 2b table once the schematic is final.
+ * ZI AIO, final pins from the production board (hardware/ZI_SAMA7_AIO,
+ * OPEN_ITEMS.md "Pin table for firmware", verified against the netlist
+ * 2026-10-23). OE/A/B/C are the same PWM pins as the EK. CLK, LAT and the
+ * six colour lines are all in bank C, so each DCLK edge is one write.
  */
 static const struct pin pins[NSIG] = {
-	[R1]  = { 2,  6, 0 }, [G1] = { 2,  7, 0 }, [B1] = { 2,  8, 0 },
-	[R2]  = { 2,  9, 0 }, [G2] = { 2, 10, 0 }, [B2] = { 2, 11, 0 },
+	[R1]  = { 2,  1, 0 }, [G1] = { 2,  0, 0 }, [B1] = { 2,  2, 0 },  /* PC1 PC0 PC2 */
+	[R2]  = { 2, 18, 0 }, [G2] = { 2, 16, 0 }, [B2] = { 2, 20, 0 },  /* PC18 PC16 PC20 */
 	[OE]  = { 4,  3, 1 },                       /* PE3  PWMH0 = GCLK */
-	[CLK] = { 2, 12, 0 }, [LAT] = { 2, 13, 0 },
+	[CLK] = { 2, 12, 0 }, [LAT] = { 2, 9, 0 },  /* PC12, PC9 */
 	[A]   = { 4,  5, 1 }, [B] = { 4, 7, 1 },    /* PE5 PWMH1, PE7 PWMH2 */
 	[C]   = { 3, 29, 6 },                       /* PD29 PWMH3 */
 };
-#define SCREEN_ON_BANK  2                    /* 2N7002 gate: high = panel rail on */
-#define SCREEN_ON_LINE  14
+#define SCREEN_ON_BANK  2                    /* PC30 SCREEN_EN: Q1 2N7002 gate, high = panel rail on */
+#define SCREEN_ON_LINE  30
 #define SCREEN_ON_SETTLE_MS 20
 #endif
 

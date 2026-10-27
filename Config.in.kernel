@@ -18,6 +18,15 @@ config LINUX_KERNEL_ARG_STRING
 	string "Linux kernel command-line"
 	default "CONFIG_ARG_CONSOLE CONFIG_ARG_MTD CONFIG_ARG_ROOT CONFIG_ARG_ROOTFSTYPE CONFIG_ARG_DELAY CONFIG_ARG_CMA CONFIG_ARG_RW CONFIG_ARG_ROOTWAIT"
 
+config ARG_BOARD
+	string "Linux bootparam: board identification tag"
+	default ""
+	help
+	  Extra arguments that identify the board and this bootstrap build to
+	  Linux, e.g. " zi.board=aio zi.bootstrap=ZI-AIO-1". Use dotted names
+	  so the kernel ignores them quietly; userspace reads /proc/cmdline.
+	  Add CONFIG_ARG_BOARD to LINUX_KERNEL_ARG_STRING to pass it.
+
 config ARG_CMA
 	string "Linux bootparam: Contiguous Memory Area support"
 	default " cma=192m" if SAMA7G5

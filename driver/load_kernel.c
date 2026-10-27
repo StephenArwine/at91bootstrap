@@ -23,7 +23,9 @@
 
 #include "debug.h"
 
-static char cmdline_buf[256];
+/* 512, not 256: the ZI AIO line is ~250 with its board tag, and a longer
+ * line makes load_kernel() refuse to boot. ARM Linux takes up to 1024. */
+static char cmdline_buf[512];
 static char *bootargs;
 
 #ifdef CONFIG_OF_LIBFDT
