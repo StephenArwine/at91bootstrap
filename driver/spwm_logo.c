@@ -86,9 +86,10 @@ static const struct pin pins[NSIG] = {
 #define REG2_VAL      0xC005
 #define DCLK_SLOWDOWN CONFIG_SPWM_LOGO_DCLK_SLOWDOWN   /* extra repeats of each edge write */
 
-/* Engine, the libspwm defaults: 4 MHz GCLK, update period 3, 3 idle periods. */
+/* Engine, the libspwm defaults: 2.5 MHz GCLK, update period 3, 3 idle periods.
+ * (4 MHz underruns the PWM while Linux boots from NAND: the logo creeps.) */
 #define MCK1_HZ   200000000u
-#define GCLK_HZ   4000000u
+#define GCLK_HZ   2500000u
 #define UPR       2
 #define GAP       3
 
